@@ -14,6 +14,7 @@ from pr_agent.algo.pr_processing import (OUTPUT_BUFFER_TOKENS_HARD_THRESHOLD,
                                          get_pr_diff,
                                          get_pr_diff_multiple_patchs,
                                          retry_with_fallback_models)
+from pr_agent.algo.repo_metadata import get_repo_metadata_content
 from pr_agent.algo.token_handler import TokenHandler
 from pr_agent.algo.utils import (ModelType, PRDescriptionHeader, clip_tokens,
                                  get_max_tokens, get_user_labels, load_yaml,
@@ -60,13 +61,28 @@ class PRDescription:
         # Initialize the variables dictionary
         self.COLLAPSIBLE_FILE_LIST_THRESHOLD = get_settings().pr_description.get("collapsible_file_list_threshold", 8)
         enable_pr_diagram = get_settings().pr_description.get("enable_pr_diagram", False) and self.git_provider.is_supported("gfm_markdown") # github and gitlab support gfm_markdown
+        
+        # Get repository metadata content (e.g., AGENTS.MD, QODO.MD, CLAUDE.MD)
+        repo_metadata_content = get_repo_metadata_content(self.git_provider)
+        
+        # Combine repo metadata with extra_instructions if both exist
+        extra_instructions = get_settings().pr_description.extra_instructions
+        if repo_metadata_content:
+            if extra_instructions:
+                # Combine both, with repo metadata first as it's more specific to the repository
+                combined_instructions = f"{repo_metadata_content}\n\n---\n\nAdditional instructions:\n{extra_instructions}"
+            else:
+                combined_instructions = repo_metadata_content
+        else:
+            combined_instructions = extra_instructions
+        
         self.vars = {
             "title": self.git_provider.pr.title,
             "branch": self.git_provider.get_pr_branch(),
             "description": self.git_provider.get_pr_description(full=False),
             "language": self.main_pr_language,
             "diff": "",  # empty diff for initial calculation
-            "extra_instructions": get_settings().pr_description.extra_instructions,
+            "extra_instructions": combined_instructions,
             "commit_messages_str": self.git_provider.get_commit_messages(),
             "enable_custom_labels": get_settings().config.enable_custom_labels,
             "custom_labels_class": "",  # will be filled if necessary in 'set_custom_labels' function

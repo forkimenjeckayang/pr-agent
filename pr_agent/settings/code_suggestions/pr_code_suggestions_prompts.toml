@@ -74,12 +74,19 @@ Specific guidelines for generating code suggestions:
 - When mentioning code elements (variables, names, or files) in your response, surround them with backticks (`). For example: "verify that `user_id` is..."
 
 {%- if extra_instructions %}
+{%- if "Repository-Specific Rules and Guidelines" in extra_instructions %}
 
+Repository-specific context and guidelines (should be addressed with high priority):
+======
+{{ extra_instructions }}
+======
+{%- else %}
 
 Extra user-provided instructions (should be addressed with high priority):
 ======
 {{ extra_instructions }}
 ======
+{%- endif %}
 {%- endif %}
 
 

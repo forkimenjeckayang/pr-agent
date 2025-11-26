@@ -9,11 +9,19 @@ Your task is to provide a full description for the PR content: type, description
 - When needed, use '- ' as bullets
 
 {%- if extra_instructions %}
+{%- if "Repository-Specific Rules and Guidelines" in extra_instructions %}
+
+Repository-specific context and guidelines:
+=====
+{{extra_instructions}}
+=====
+{%- else %}
 
 Extra instructions from the user:
 =====
 {{extra_instructions}}
 =====
+{%- endif %}
 {% endif %}
 
 

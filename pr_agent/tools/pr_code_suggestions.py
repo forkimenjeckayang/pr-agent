@@ -17,6 +17,7 @@ from pr_agent.algo.git_patch_processing import decouple_and_convert_to_hunks_wit
 from pr_agent.algo.pr_processing import (add_ai_metadata_to_diff_files,
                                          get_pr_diff, get_pr_multi_diffs,
                                          retry_with_fallback_models)
+from pr_agent.algo.repo_metadata import get_repo_metadata_content
 from pr_agent.algo.token_handler import TokenHandler
 from pr_agent.algo.utils import (ModelType, load_yaml, replace_code_tags,
                                  show_relevant_configurations, get_max_tokens, clip_tokens, get_model)
@@ -57,6 +58,20 @@ class PRCodeSuggestions:
             get_settings().set("config.enable_ai_metadata", False)
             get_logger().debug(f"AI metadata is disabled for this command")
 
+        # Get repository metadata content (e.g., AGENTS.MD, QODO.MD, CLAUDE.MD)
+        repo_metadata_content = get_repo_metadata_content(self.git_provider)
+        
+        # Combine repo metadata with extra_instructions if both exist
+        extra_instructions = get_settings().pr_code_suggestions.extra_instructions
+        if repo_metadata_content:
+            if extra_instructions:
+                # Combine both, with repo metadata first as it's more specific to the repository
+                combined_instructions = f"{repo_metadata_content}\n\n---\n\nAdditional instructions:\n{extra_instructions}"
+            else:
+                combined_instructions = repo_metadata_content
+        else:
+            combined_instructions = extra_instructions
+
         self.vars = {
             "title": self.git_provider.pr.title,
             "branch": self.git_provider.get_pr_branch(),
@@ -65,7 +80,7 @@ class PRCodeSuggestions:
             "diff": "",  # empty diff for initial calculation
             "diff_no_line_numbers": "",  # empty diff for initial calculation
             "num_code_suggestions": num_code_suggestions,
-            "extra_instructions": get_settings().pr_code_suggestions.extra_instructions,
+            "extra_instructions": combined_instructions,
             "commit_messages_str": self.git_provider.get_commit_messages(),
             "relevant_best_practices": "",
             "is_ai_metadata": get_settings().get("config.enable_ai_metadata", False),

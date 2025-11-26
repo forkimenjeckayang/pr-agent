@@ -12,6 +12,7 @@ from pr_agent.algo.ai_handlers.litellm_ai_handler import LiteLLMAIHandler
 from pr_agent.algo.pr_processing import (add_ai_metadata_to_diff_files,
                                          get_pr_diff,
                                          retry_with_fallback_models)
+from pr_agent.algo.repo_metadata import get_repo_metadata_content
 from pr_agent.algo.token_handler import TokenHandler
 from pr_agent.algo.utils import (ModelType, PRReviewHeader,
                                  convert_to_markdown_v2, github_action_output,
@@ -74,6 +75,20 @@ class PRReviewer:
             get_settings().set("config.enable_ai_metadata", False)
             get_logger().debug(f"AI metadata is disabled for this command")
 
+        # Get repository metadata content (e.g., AGENTS.MD, QODO.MD, CLAUDE.MD)
+        repo_metadata_content = get_repo_metadata_content(self.git_provider)
+        
+        # Combine repo metadata with extra_instructions if both exist
+        extra_instructions = get_settings().pr_reviewer.extra_instructions
+        if repo_metadata_content:
+            if extra_instructions:
+                # Combine both, with repo metadata first as it's more specific to the repository
+                combined_instructions = f"{repo_metadata_content}\n\n---\n\nAdditional instructions:\n{extra_instructions}"
+            else:
+                combined_instructions = repo_metadata_content
+        else:
+            combined_instructions = extra_instructions
+
         self.vars = {
             "title": self.git_provider.pr.title,
             "branch": self.git_provider.get_pr_branch(),
@@ -91,7 +106,7 @@ class PRReviewer:
             'require_todo_scan': get_settings().pr_reviewer.get("require_todo_scan", False),
             'question_str': question_str,
             'answer_str': answer_str,
-            "extra_instructions": get_settings().pr_reviewer.extra_instructions,
+            "extra_instructions": combined_instructions,
             "commit_messages_str": self.git_provider.get_commit_messages(),
             "custom_labels": "",
             "enable_custom_labels": get_settings().config.enable_custom_labels,
