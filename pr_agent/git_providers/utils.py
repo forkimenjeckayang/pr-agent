@@ -1,4 +1,5 @@
 import copy
+import json
 import os
 import tempfile
 import traceback
@@ -66,7 +67,27 @@ def apply_repo_settings(pr_url):
                             continue
                         section_dict = copy.deepcopy(get_settings().as_dict().get(section, {}))
                         for key, value in contents.items():
-                            section_dict[key] = value
+                            # Check if this setting was set via environment variable
+                            # Environment variables take precedence over repo settings
+                            env_key = f"{section.upper()}.{key.upper()}".replace(".", "_")
+                            env_key_alt = f"{section}.{key}".replace(".", "_")
+                            
+                            # Check if env var exists (case-insensitive check)
+                            env_var_exists = False
+                            for env_var_name in os.environ.keys():
+                                normalized_env = env_var_name.upper().replace(".", "_")
+                                if normalized_env == env_key or normalized_env == env_key_alt:
+                                    env_var_exists = True
+                                    get_logger().debug(f"Preserving env var value for {section}.{key}, skipping repo settings override")
+                                    break
+                            
+                            # Only overwrite if no env var exists for this setting
+                            if not env_var_exists:
+                                section_dict[key] = value
+                            else:
+                                # Keep the existing value (from env var)
+                                if key not in section_dict:
+                                    section_dict[key] = get_settings().get(f"{section}.{key}", value)
                         get_settings().unset(section)
                         get_settings().set(section, section_dict, merge=False)
                     get_logger().info(f"Applying repo settings:\n{new_settings.as_dict()}")

@@ -2,6 +2,7 @@
 Utility functions for reading repository metadata files (e.g., AGENTS.MD, QODO.MD, CLAUDE.MD)
 and incorporating them into PR review context.
 """
+import json
 from typing import Optional
 from pr_agent.config_loader import get_settings
 from pr_agent.git_providers.git_provider import GitProvider
@@ -32,6 +33,15 @@ def get_repo_metadata_content(git_provider: GitProvider) -> str:
     
     # Get the list of metadata files to read (can be paths from project root, e.g., "docs/standards.md")
     metadata_file_list = get_settings().get("config.add_repo_metadata_file_list", [])
+    
+    # Handle case where env var is passed as JSON string (e.g., from GitHub Actions)
+    if isinstance(metadata_file_list, str):
+        try:
+            metadata_file_list = json.loads(metadata_file_list)
+        except (json.JSONDecodeError, ValueError):
+            # If it's not valid JSON, treat as single file path
+            metadata_file_list = [metadata_file_list] if metadata_file_list.strip() else []
+    
     if not metadata_file_list:
         get_logger().debug("No metadata files specified in add_repo_metadata_file_list")
         return ""
